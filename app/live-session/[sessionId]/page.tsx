@@ -1,6 +1,9 @@
+// app/live-session/[sessionId]/page.tsx
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import PresentationShell from "@/components/live-session/PresentationShell";
+
+export const dynamic = "force-dynamic";
 
 export default async function LiveSessionPage({ params }: { params: { sessionId: string } }) {
   const sessionPlan = await prisma.sessionPlan.findUnique({
@@ -10,9 +13,7 @@ export default async function LiveSessionPage({ params }: { params: { sessionId:
       curriculumComponent: { include: { slides: { orderBy: { order: "asc" } } } },
     },
   });
-
   if (!sessionPlan) notFound();
-
   return (
     <PresentationShell
       learnerFirstName={sessionPlan.learner.user.firstName}
