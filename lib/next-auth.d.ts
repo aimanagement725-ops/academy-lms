@@ -1,3 +1,4 @@
+// lib/next-auth.d.ts
 import { DefaultSession } from "next-auth";
 
 declare module "next-auth" {
@@ -7,8 +8,14 @@ declare module "next-auth" {
       role: "ADMIN" | "INSTRUCTOR" | "STUDENT";
     } & DefaultSession["user"];
   }
-
   interface User {
     role: "ADMIN" | "INSTRUCTOR" | "STUDENT";
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    role: "ADMIN" | "INSTRUCTOR" | "STUDENT";
+    id: string;
   }
 }
