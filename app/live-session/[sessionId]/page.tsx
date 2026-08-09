@@ -6,6 +6,8 @@ import PresentationShell from "@/components/live-session/PresentationShell";
 export const dynamic = "force-dynamic";
 
 export default async function LiveSessionPage({ params }: { params: { sessionId: string } }) {
+  console.log("[live-session] Looking up sessionId:", params.sessionId);   // ← ADD THIS LINE
+
   const sessionPlan = await prisma.sessionPlan.findUnique({
     where: { id: params.sessionId },
     include: {
@@ -13,7 +15,11 @@ export default async function LiveSessionPage({ params }: { params: { sessionId:
       curriculumComponent: { include: { slides: { orderBy: { order: "asc" } } } },
     },
   });
+
+  console.log("[live-session] Result:", sessionPlan ? `FOUND (${sessionPlan.id})` : "NULL");   // ← ADD THIS LINE
+
   if (!sessionPlan) notFound();
+
   return (
     <PresentationShell
       learnerFirstName={sessionPlan.learner.user.firstName}
