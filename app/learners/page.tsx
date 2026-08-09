@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 
+// Forces Next.js to fetch data on every request (SSR) instead of during build
+export const dynamic = "force-dynamic";
+
 export default async function LearnersListPage() {
   const learners = await prisma.user.findMany({
     where: { role: "STUDENT" },
@@ -14,8 +17,6 @@ export default async function LearnersListPage() {
       {learners.length === 0 ? (
         <div style={{ padding: "1rem", backgroundColor: "#fff3cd", border: "1px solid #ffeeba", borderRadius: "6px" }}>
           <strong>⚠️ Database is empty!</strong> No student records were found.
-          <br />
-          You need to run the seed script on Railway.
         </div>
       ) : (
         <ul style={{ display: "grid", gap: "1rem", listStyle: "none", padding: 0 }}>
