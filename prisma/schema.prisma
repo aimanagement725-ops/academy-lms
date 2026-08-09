@@ -1,0 +1,191 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================================
+// AUTH & ROLES
+// ============================================================
+
+enum UserRole {
+  ADMIN
+  INSTRUCTOR
+  STUDENT
+}
+
+model User {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  hashedPassword String
+  role           UserRole
+  firstName      String
+  lastName       String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  learnerProfile    LearnerProfile?
+  instructorProfile InstructorProfile?
+
+  sessionsAsInstructor SessionPlan[] @relation("InstructorSessions")
+}
+
+model InstructorProfile {
+  id       String           @id @default(uuid())
+  userId   String           @unique
+  user     User             @relation(fields: [userId], references: [id])
+  bio      String?
+  learners LearnerProfile[]
+}
+
+model LearnerProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  jobTitle     String?
+  industry     String?
+  company      String?
+  academyLevel Int // 1-8
+  cefrLevel    String // e.g. "B1.3"
+  levelName    String
+
+  instructorId String?
+  instructor   InstructorProfile? @relation(fields: [instructorId], references: [id])
+
+  totalSessions   Int    @default(0)
+  sessionsPerWeek Int    @default(2)
+  avgRating       Float?
+
+  sessionPlans    SessionPlan[]
+  aiConversations AIConversationSession[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// CURRICULUM (modeled on the academy's real lesson-doc structure)
+// ============================================================
+
+model CurriculumComponent {
+  id           String @id @default(uuid())
+  title        String
+  academyLevel Int
+  cefrLevel    String
+
+  objectives         String[]
+  warmUpPrompt       String   @db.Text
+  grammarExplanation Json // { rule: string, examples: string[] }
+  vocabulary         Json // [{ group: string, terms: [{ term, definition }] }]
+  qaDrill            Json // [{ question: string, answer: string }]
+  finalPresentation  Json // { instructions: string, requirements: string[], modelExample: string }
+  aiPracticePrompt   String? @db.Text // seeds the live AI voice partner
+
+  slides       Slide[]
+  sessionPlans SessionPlan[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum SlideType {
+  OBJECTIVES
+  WARMUP
+  EXPLANATION
+  VOCABULARY
+  QA_DRILL
+  FINAL_PRESENTATION
+  AI_PRACTICE
+  INSTRUCTION_BREAK
+}
+
+model Slide {
+  id     String    @id @default(uuid())
+  order  Int
+  slideType SlideType
+  title  String
+
+  subtitleTemplate String? // supports {{firstName}} interpolation
+  bodyRichText     Json?
+
+  instructionLabel       String?
+  instructionDurationMin Int?
+  instructionText        String? @db.Text
+
+  curriculumComponentId String
+  curriculumComponent   CurriculumComponent @relation(fields: [curriculumComponentId], references: [id])
+
+  @@index([curriculumComponentId, order])
+}
+
+// ============================================================
+// SESSIONS
+// ============================================================
+
+enum SessionStatus {
+  PENDING
+  COMPLETED
+  CANCELED
+}
+
+model SessionPlan {
+  id            String        @id @default(uuid())
+  dateScheduled DateTime
+  status        SessionStatus @default(PENDING)
+
+  learnerId String
+  learner   LearnerProfile @relation(fields: [learnerId], references: [id])
+
+  curriculumComponentId String
+  curriculumComponent   CurriculumComponent @relation(fields: [curriculumComponentId], references: [id])
+
+  instructorId String?
+  instructor   User?   @relation("InstructorSessions", fields: [instructorId], references: [id])
+
+  coachFeedback  String?   @db.Text
+  completionDate DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// AI VOICE CONVERSATION PARTNER
+// ============================================================
+
+enum AISessionStatus {
+  ACTIVE
+  ENDED
+}
+
+model AIConversationSession {
+  id     String @id @default(uuid())
+  learnerId String
+  learner   LearnerProfile @relation(fields: [learnerId], references: [id])
+
+  seedPromptUsed   String          @db.Text // aiPracticePrompt snapshot at session start
+  realtimeProvider String          @default("openai") // "openai" | "gemini"
+  status           AISessionStatus @default(ACTIVE)
+
+  messages        AIMessage[]
+  instructorNotes String?     @db.Text
+
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+}
+
+model AIMessage {
+  id             String                @id @default(uuid())
+  sessionId      String
+  session        AIConversationSession @relation(fields: [sessionId], references: [id])
+
+  role           String // "learner" | "ai"
+  content        String @db.Text
+  correctionNote String? @db.Text
+
+  createdAt DateTime @default(now())
+}
